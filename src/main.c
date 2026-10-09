@@ -1,4 +1,3 @@
-#include "stdint.h"
 #include "ssd1306.h"
 
 
