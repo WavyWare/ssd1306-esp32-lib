@@ -1,4 +1,5 @@
 #include "ssd1306.h"
+#include "esp_err.h"
 #include <driver/i2c.h>
 #include <stdint.h>
 #include <string.h>
@@ -8,8 +9,6 @@
 #define FONT5X7_CHAR_COUNT  95
 #define FONT5X7_WIDTH       5
 #define FONT5X7_HEIGHT      7
-
-#define DISPLAY_ADDRESS 0x3C
 
 static const uint8_t font5x7[95][5] = {
     /* 32 ' ' */ { 0x00, 0x00, 0x00, 0x00, 0x00 },
@@ -109,53 +108,54 @@ static const uint8_t font5x7[95][5] = {
     /* 126 '~' */ { 0x08, 0x04, 0x08, 0x10, 0x08 }
 };
 
-static uint8_t framebuffer[512] = {0};
-
-void ssd1306_write_cmd(uint8_t cmd) {
+static esp_err_t ssd1306_write_cmd(ssd1306_t *context, uint8_t cmd) {
+    if (!context) return ESP_FAIL;
+    esp_err_t status;
     i2c_cmd_handle_t cmd_link = i2c_cmd_link_create();
     i2c_master_start(cmd_link);
-    i2c_master_write_byte(cmd_link, (DISPLAY_ADDRESS << 1) | I2C_MASTER_WRITE, true);
+    i2c_master_write_byte(cmd_link, (context->address << 1) | I2C_MASTER_WRITE, true);
     i2c_master_write_byte(cmd_link, 0x00, true);
     i2c_master_write_byte(cmd_link, cmd, true);
     i2c_master_stop(cmd_link);
-    i2c_master_cmd_begin(I2C_NUM_0, cmd_link, 10 / portTICK_PERIOD_MS);
+    status = i2c_master_cmd_begin(context->i2c_port, cmd_link, 10 / portTICK_PERIOD_MS);
     i2c_cmd_link_delete(cmd_link);
+    return status;
 }
 
-void ssd1306_init() {
-    ssd1306_write_cmd(0xAE);
-
-    ssd1306_write_cmd(0xA8);
-    ssd1306_write_cmd(0x1F);
-
-    ssd1306_write_cmd(0xDA);
-    ssd1306_write_cmd((1 << 1));
-
-    ssd1306_write_cmd(0x20);
-    ssd1306_write_cmd(0x00);
-
-    ssd1306_write_cmd(0x8D);
-    ssd1306_write_cmd(0x14);
-
-    ssd1306_write_cmd(0xAF);
-}
-
-void ssd1306_flush() {
-    ssd1306_write_cmd(0x21);
-    ssd1306_write_cmd(0x00);
-    ssd1306_write_cmd(0x7F);
-
-    ssd1306_write_cmd(0x22);
-    ssd1306_write_cmd(0x00);
-    ssd1306_write_cmd(0x03);
+esp_err_t ssd1306_write_cmds(ssd1306_t *context, size_t n, const uint8_t * cmds) {
+    if (!context) return ESP_FAIL;
+    esp_err_t status;
     i2c_cmd_handle_t cmd_link = i2c_cmd_link_create();
     i2c_master_start(cmd_link);
-    i2c_master_write_byte(cmd_link, (DISPLAY_ADDRESS << 1) | I2C_MASTER_WRITE, true);
-    i2c_master_write_byte(cmd_link, (1 << 6), true);
-    i2c_master_write(cmd_link, framebuffer, sizeof(framebuffer), true);
+    i2c_master_write_byte(cmd_link, (context->address << 1) | I2C_MASTER_WRITE, true);
+    i2c_master_write_byte(cmd_link, 0x00, true);
+    i2c_master_write(cmd_link, cmds, n, true);
     i2c_master_stop(cmd_link);
-    i2c_master_cmd_begin(I2C_NUM_0, cmd_link, 100 / portTICK_PERIOD_MS);
+    status = i2c_master_cmd_begin(context->i2c_port, cmd_link, 100 / portTICK_PERIOD_MS);
     i2c_cmd_link_delete(cmd_link);
+    return status;
+}
+
+esp_err_t ssd1306_default_init(ssd1306_t *context) {
+    if (!context) return ESP_FAIL;
+    const uint8_t cmds[10] = {0xAE, 0xA8, 0x1F, 0xDA, (1 << 1), 0x20, 0x00, 0x8D, 0x14, 0xAF};
+    return ssd1306_write_cmds(context, sizeof(cmds), cmds);
+}
+
+esp_err_t ssd1306_flush(ssd1306_t *context) {
+    if (!context) return ESP_FAIL;
+    const uint8_t cmds[6] = {0x21, 0x00, 0x7F, 0x22, 0x00, 0x03};
+    esp_err_t status = ssd1306_write_cmds(context, sizeof(cmds), cmds);
+    if (status != ESP_OK) return status;
+    i2c_cmd_handle_t cmd_link = i2c_cmd_link_create();
+    i2c_master_start(cmd_link);
+    i2c_master_write_byte(cmd_link, (context->address << 1) | I2C_MASTER_WRITE, true);
+    i2c_master_write_byte(cmd_link, (1 << 6), true);
+    i2c_master_write(cmd_link, context->framebuffer, (context->width*(context->height>>3)), true);
+    i2c_master_stop(cmd_link);
+    status = i2c_master_cmd_begin(context->i2c_port, cmd_link, 100 / portTICK_PERIOD_MS);
+    i2c_cmd_link_delete(cmd_link);
+    return status;
 }
 
 void ssd1306_set_pixel(ssd1306_t * context, int x, int y, bool color) {
@@ -176,50 +176,58 @@ void ssd1306_set_pixel(ssd1306_t * context, int x, int y, bool color) {
     
 }
 
-void draw_char(int x, int y, char c) {
-    if (c < 32 || c > 126) return;
+static esp_err_t draw_char(ssd1306_t *context, int x, int y, char c) {
+    if (!context) return ESP_FAIL;
+    if (c < 32 || c > 126) return ESP_FAIL;
+    if (x >= context->width || x < 0 || y >= context->height || y < 0) return ESP_FAIL;
     int index = c - 32;
     const uint8_t *character = font5x7[index];
     for (int col = 0; col < 5; col++) {
         for (int row = 0; row < 8; row++) {
             uint8_t byte = (character[col] >> row) & 0x01;
-            ssd1306_set_pixel(x+col, y+row, byte);
+            ssd1306_set_pixel(context, x+col, y+row, byte);
         }
     }
+    return ESP_OK;
 }
 
-void ssd1306_clear() {
-    memset(framebuffer, 0x00, 512);
+esp_err_t ssd1306_clear(ssd1306_t *context) {
+    if (!context) return ESP_FAIL;
+    memset(context->framebuffer, 0x00, context->width*(context->height>>3));
+    return ESP_OK;
 }
 
-void draw_string(int x, int y, const char *str) {
-    if (x > 128 || x < 0 || y < 0 || y > 32) {
-        return;
+esp_err_t draw_string(ssd1306_t *context, int x, int y, const char *str) {
+    if (!context) return ESP_FAIL; 
+    if (x > context->width || x < 0 || y < 0 || y > context->height) {
+        return ESP_FAIL;
     }
     int cursor_x = x;
     while (*str != '\0') {
-        if (cursor_x + 6 >= 128) {
+        if (cursor_x + FONT5X7_WIDTH+1 >= context->width) {
             cursor_x = x;
-            y += 8;
-            if (y >= 32) break;
+            y += FONT5X7_HEIGHT+1;
+            if (y >= context->height) break;
         }
-        draw_char(cursor_x, y, *str);
-        cursor_x += 6;
+        draw_char(context, cursor_x, y, *str);
+        cursor_x += FONT5X7_WIDTH+1;
         str++;
     }
+    return ESP_OK;
 }
 
-void progress_bar(int x, int y, int height, int width, uint8_t percent) {
-    if (x + width > 128 || x < 0 || y < 0 || y + height > 32 || percent > 100) {
-        return;
+esp_err_t progress_bar(ssd1306_t *context, int x, int y, int height, int width, uint8_t percent) {
+    if (!context) return ESP_FAIL;
+    if (x + width > context->width || x < 0 || y < 0 || y + height > context->height || percent > 100) {
+        return ESP_FAIL;
     }
     for (int i = 0; i <= width; i++) {
-        ssd1306_set_pixel(x+i, y, 1);
-        ssd1306_set_pixel(x+i, y+height, 1);
+        ssd1306_set_pixel(context, x+i, y, 1);
+        ssd1306_set_pixel(context, x+i, y+height, 1);
     }
     for (int i = 0; i <= height; i++) {
-        ssd1306_set_pixel(x, y+i, 1);
-        ssd1306_set_pixel(x+width, y+i, 1);
+        ssd1306_set_pixel(context, x, y+i, 1);
+        ssd1306_set_pixel(context, x+width, y+i, 1);
     }
     int min_x = x+1;
     int min_y = y+1;
@@ -228,8 +236,9 @@ void progress_bar(int x, int y, int height, int width, uint8_t percent) {
     
     for(int ix = 0; ix < width_pixels; ix++) {
         for (int iy = 0; iy < height_pixels; iy++) {
-            ssd1306_set_pixel(min_x+ix, min_y+iy, 1);
+            ssd1306_set_pixel(context, min_x+ix, min_y+iy, 1);
         }
     }
+    return ESP_OK;
 }
 
