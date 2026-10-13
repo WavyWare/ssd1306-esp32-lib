@@ -1,5 +1,7 @@
+#include "ssd1306.h"
 #include "stdint.h"
 #include <driver/i2c.h>
+#include <stdint.h>
 #include <string.h>
 
 #define FONT5X7_FIRST_ASCII 32
@@ -173,16 +175,20 @@ void ssd1306_flush() {
     i2c_cmd_link_delete(cmd_link);
 }
 
-void ssd1306_set_pixel(int x, int y, bool color) {
-    if (x >= 128 || x < 0 || y >= 32 || y < 0) {
+void ssd1306_set_pixel(ssd1306_t * context, int x, int y, bool color) {
+    if (!context || !context->width || !context->height || !context->framebuffer) {
         return;
     }
-    int page = y/8;
-    int arr_coordinate = 128*page + x;
+    if (x >= context->width || x < 0 || y >= context->height || y < 0) {
+        return;
+    }
+    int page = y>>3;
+    int arr_coordinate = context->width*page + x;
+    uint8_t pixel_height = (1 << (y & 7)); // 1 is pushed up every y & 7 which is exact to y mod 8
     if (color) {
-        framebuffer[arr_coordinate] |= (1 << (y % 8));
+        context->framebuffer[arr_coordinate] |= pixel_height;
     } else {
-        framebuffer[arr_coordinate] &= ~(1 << (y % 8));
+        context->framebuffer[arr_coordinate] &= ~pixel_height;
     }
     
 }
