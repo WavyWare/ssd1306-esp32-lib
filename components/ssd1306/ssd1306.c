@@ -1,5 +1,4 @@
 #include "ssd1306.h"
-#include "stdint.h"
 #include <driver/i2c.h>
 #include <stdint.h>
 #include <string.h>
@@ -10,10 +9,7 @@
 #define FONT5X7_WIDTH       5
 #define FONT5X7_HEIGHT      7
 
-#define SDA_PIN 21
-#define SCL_PIN 22
 #define DISPLAY_ADDRESS 0x3C
-#define CLK_SPEED 400000
 
 static const uint8_t font5x7[95][5] = {
     /* 32 ' ' */ { 0x00, 0x00, 0x00, 0x00, 0x00 },
@@ -114,19 +110,6 @@ static const uint8_t font5x7[95][5] = {
 };
 
 static uint8_t framebuffer[512] = {0};
-
-void i2c_master_init(void) {
-    i2c_config_t conf = {
-        .mode = I2C_MODE_MASTER,
-        .sda_io_num = SDA_PIN,
-        .sda_pullup_en = GPIO_PULLUP_ENABLE,
-        .scl_io_num = SCL_PIN,
-        .scl_pullup_en = GPIO_PULLUP_ENABLE,
-        .master.clk_speed = CLK_SPEED,
-    };
-    i2c_param_config(I2C_NUM_0, &conf);
-    i2c_driver_install(I2C_NUM_0, conf.mode, 0, 0, 0);
-}
 
 void ssd1306_write_cmd(uint8_t cmd) {
     i2c_cmd_handle_t cmd_link = i2c_cmd_link_create();
