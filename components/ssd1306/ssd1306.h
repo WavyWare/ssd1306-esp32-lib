@@ -11,7 +11,6 @@ struct ssd1306_t {
 };
 typedef struct ssd1306_t ssd1306_t;
 
-void i2c_master_init(void);
 void ssd1306_init();
 void ssd1306_flush();
 void ssd1306_set_pixel(ssd1306_t * context, int x, int y, bool color);
