@@ -13,6 +13,7 @@ struct ssd1306_t {
 };
 typedef struct ssd1306_t ssd1306_t;
 
+size_t ssd1306_get_framebuffer_size(uint8_t width, uint8_t height);
 esp_err_t ssd1306_write_cmds(ssd1306_t *context, size_t n, const uint8_t * cmds);
 esp_err_t ssd1306_default_init(ssd1306_t *context);
 esp_err_t ssd1306_flush(ssd1306_t *context);

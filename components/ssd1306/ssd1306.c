@@ -1,6 +1,7 @@
 #include "ssd1306.h"
 #include "esp_err.h"
 #include <driver/i2c.h>
+#include <stddef.h>
 #include <stdint.h>
 #include <string.h>
 
@@ -108,6 +109,10 @@ static const uint8_t font5x7[95][5] = {
     /* 126 '~' */ { 0x08, 0x04, 0x08, 0x10, 0x08 }
 };
 
+size_t ssd1306_get_framebuffer_size(uint8_t width, uint8_t height) {
+    return width*(height>>3);
+}
+
 static esp_err_t ssd1306_write_cmd(ssd1306_t *context, uint8_t cmd) {
     if (!context) return ESP_FAIL;
     esp_err_t status;
@@ -151,7 +156,7 @@ esp_err_t ssd1306_flush(ssd1306_t *context) {
     i2c_master_start(cmd_link);
     i2c_master_write_byte(cmd_link, (context->address << 1) | I2C_MASTER_WRITE, true);
     i2c_master_write_byte(cmd_link, (1 << 6), true);
-    i2c_master_write(cmd_link, context->framebuffer, (context->width*(context->height>>3)), true);
+    i2c_master_write(cmd_link, context->framebuffer, ssd1306_get_framebuffer_size(context->width, context->height), true);
     i2c_master_stop(cmd_link);
     status = i2c_master_cmd_begin(context->i2c_port, cmd_link, 100 / portTICK_PERIOD_MS);
     i2c_cmd_link_delete(cmd_link);
@@ -193,7 +198,7 @@ static esp_err_t draw_char(ssd1306_t *context, int x, int y, char c) {
 
 esp_err_t ssd1306_clear(ssd1306_t *context) {
     if (!context) return ESP_FAIL;
-    memset(context->framebuffer, 0x00, context->width*(context->height>>3));
+    memset(context->framebuffer, 0x00, ssd1306_get_framebuffer_size(context->width, context->height));
     return ESP_OK;
 }
 
