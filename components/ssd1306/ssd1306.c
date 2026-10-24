@@ -4,6 +4,7 @@
 #include <stddef.h>
 #include <stdint.h>
 #include <string.h>
+#include <sys/types.h>
 
 #define FONT5X7_FIRST_ASCII 32
 #define FONT5X7_LAST_ASCII  126
@@ -178,7 +179,6 @@ void ssd1306_set_pixel(ssd1306_t * context, int x, int y, bool color) {
     } else {
         context->framebuffer[arr_coordinate] &= ~pixel_height;
     }
-    
 }
 
 static esp_err_t draw_char(ssd1306_t *context, int x, int y, char c) {
@@ -247,3 +247,9 @@ esp_err_t progress_bar(ssd1306_t *context, int x, int y, int height, int width, 
     return ESP_OK;
 }
 
+esp_err_t ssd1306_deinit(ssd1306_t *context) {
+    if (!context) return ESP_FAIL;
+    ssd1306_write_cmd(context, 0xAE);
+    free(context->framebuffer);
+    return ESP_OK;
+}

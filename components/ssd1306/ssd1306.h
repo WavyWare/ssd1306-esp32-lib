@@ -21,3 +21,4 @@ void ssd1306_set_pixel(ssd1306_t * context, int x, int y, bool color);
 esp_err_t ssd1306_clear(ssd1306_t *context);
 esp_err_t draw_string(ssd1306_t *context, int x, int y, const char *str);
 esp_err_t progress_bar(ssd1306_t *context, int x, int y, int height, int width, uint8_t percent);
+esp_err_t ssd1306_deinit(ssd1306_t *context);
