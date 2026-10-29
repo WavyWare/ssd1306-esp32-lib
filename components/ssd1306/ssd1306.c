@@ -181,7 +181,7 @@ void ssd1306_set_pixel(ssd1306_t * context, int x, int y, bool color) {
     }
 }
 
-static esp_err_t draw_char(ssd1306_t *context, int x, int y, char c) {
+static esp_err_t ssd1306_draw_char(ssd1306_t *context, int x, int y, char c) {
     if (!context) return ESP_FAIL;
     if (c < 32 || c > 126) return ESP_FAIL;
     if (x >= context->width || x < 0 || y >= context->height || y < 0) return ESP_FAIL;
@@ -202,7 +202,7 @@ esp_err_t ssd1306_clear(ssd1306_t *context) {
     return ESP_OK;
 }
 
-esp_err_t draw_string(ssd1306_t *context, int x, int y, const char *str) {
+esp_err_t ssd1306_draw_string(ssd1306_t *context, int x, int y, const char *str) {
     if (!context) return ESP_FAIL; 
     if (x > context->width || x < 0 || y < 0 || y > context->height) {
         return ESP_FAIL;
@@ -214,14 +214,14 @@ esp_err_t draw_string(ssd1306_t *context, int x, int y, const char *str) {
             y += FONT5X7_HEIGHT+1;
             if (y >= context->height) break;
         }
-        draw_char(context, cursor_x, y, *str);
+        ssd1306_draw_char(context, cursor_x, y, *str);
         cursor_x += FONT5X7_WIDTH+1;
         str++;
     }
     return ESP_OK;
 }
 
-esp_err_t progress_bar(ssd1306_t *context, int x, int y, int height, int width, uint8_t percent) {
+esp_err_t ssd1306_progress_bar(ssd1306_t *context, int x, int y, int height, int width, uint8_t percent) {
     if (!context) return ESP_FAIL;
     if (x + width > context->width || x < 0 || y < 0 || y + height > context->height || percent > 100) {
         return ESP_FAIL;
