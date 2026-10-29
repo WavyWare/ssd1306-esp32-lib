@@ -76,4 +76,28 @@ esp_err_t ssd1306_clear(ssd1306_t *context);
 ```
 ssd1306_clear clears values from framebuffer.
 
+#### ssd1306_deinit
+```c
+esp_err_t ssd1306_deinit(ssd1306_t *context);
+```
+ssd1306_deinit deinitializes display and turn it into sleep mode.
 
+### Drawing
+
+#### ssd1306_set_pixel
+```c
+void ssd1306_set_pixel(ssd1306_t * context, int x, int y, bool color);
+```
+ssd1306_set_pixel is primitive function for setting each pixel manually.
+
+#### draw_string
+```c
+esp_err_t ssd1306_draw_string(ssd1306_t *context, int x, int y, const char *str);
+```
+draw_string draws text if it's possible and wraps it when it overflows.
+
+#### ssd1306_progress_bar
+```c
+esp_err_t ssd1306_progress_bar(ssd1306_t *context, int x, int y, int height, int width, uint8_t percent);
+```
+progress_bar draws progress bar, capable of showing precentage values.

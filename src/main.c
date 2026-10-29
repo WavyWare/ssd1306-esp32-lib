@@ -1,5 +1,4 @@
 #include "freertos/idf_additions.h"
-#include "freertos/projdefs.h"
 #include "hal/i2c_types.h"
 #include "portmacro.h"
 #include "soc/gpio_num.h"
